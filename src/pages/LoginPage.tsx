@@ -22,7 +22,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-[360px]">
         <div className="text-center mb-6">
-          <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center text-white text-[13px] font-bold mx-auto mb-3 shadow-lg shadow-blue-600/20">PS</div>
+          <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center text-white text-[13px] font-bold mx-auto mb-3 shadow-lg shadow-blue-600/20">CF</div>
           <h1 className="text-xl font-bold text-gray-900">Welcome back</h1>
           <p className="text-[13px] text-gray-500 mt-0.5">Sign in to your dashboard</p>
         </div>

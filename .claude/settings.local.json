@@ -48,7 +48,9 @@
       "Bash(git --version)",
       "Bash(git init *)",
       "Bash(git add *)",
-      "Bash(grep -E \"\\\\.env$|\\\\.env \")"
+      "Bash(grep -E \"\\\\.env$|\\\\.env \")",
+      "Bash(grep -inE \"eyJ[A-Za-z0-9_-]{20,}|service_role|sk-[A-Za-z0-9]{20,}|Bearer [A-Za-z0-9]{20,}|password.*=.*['\\\\\"][^'\\\\\"]{6,}\")",
+      "Bash(git commit -q -m ' *)"
     ]
   }
 }
