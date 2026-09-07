@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: ghcr.io/risaddex/chat-flow-api:latest
+          image: 192.168.1.17:32500/ivaisoft/chat-flow-api@sha256:3d69867cd30cb07f2efa35d95faeed64c50ce9ece1ec6c5582e0edf3e8fea7d0
           ports:
             - containerPort: 3001
           env:
@@ -60,7 +60,7 @@ spec:
     spec:
       containers:
         - name: web
-          image: ghcr.io/risaddex/chat-flow:latest
+          image: 192.168.1.17:32500/ivaisoft/chat-flow-web@sha256:8e263a5db8fb2ddf536836d10a342ece5d6c71792ef721332dacf72312c2842b
           ports:
             - containerPort: 8080
           readinessProbe:
@@ -82,6 +82,7 @@ metadata:
   name: chat-flow
   namespace: ivaisoft
 spec:
+  ingressClassName: cloudflare-tunnel
   rules:
     - host: chat.ivaisoft.com
       http:
@@ -113,7 +114,7 @@ spec:
                 - -X
                 - POST
                 - -H
-                - X-Machine-Secret: $(API_MACHINE_SECRET)
+                - "X-Machine-Secret: $(API_MACHINE_SECRET)"
                 - http://chat-flow-api.ivaisoft.svc.cluster.local:3001/api/retention/purge
               env:
                 - name: API_MACHINE_SECRET

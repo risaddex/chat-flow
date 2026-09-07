@@ -29,7 +29,19 @@ when rotating BWS values, update the corresponding n8n credential too.
 No secret values belong in workflow parameters or Git.
 
 Keep `IvaiSoft WhatsApp API` and `OpenRouter account`. The drafts remain
-inactive pending application deployment, operator bootstrap and smoke.
+inactive pending operator bootstrap, gateway smoke and cutover. The application
+is deployed; the existing OpenRouter key returned `API key expired` during
+summary smoke (execution `5587`). Do not publish the gateway until that is fixed.
+
+## Smoke evidence — 2026-09-07
+
+- `5585` reproduced the status Code node returning an array in per-item mode.
+  `Normalizar status` now runs for all items and preserves `pairedItem` links.
+- `5586` passed the two-status normalization and authenticated API requests.
+- `5589` and `5590` persisted the same inbound text twice through the real
+  HTTP node: database verification found one message and unread count `1`.
+- `5591` persisted delivered/read events: final status `read`, two events.
+- All database smoke fixtures were removed. No real WhatsApp send occurred.
 
 ## Cutover after smoke
 
