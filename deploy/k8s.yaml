@@ -24,11 +24,12 @@ spec:
           env:
             - { name: SUPABASE_URL, value: "https://lorwmxxrxodonkxgmvzm.supabase.co" }
             - { name: CORS_ORIGIN, value: "https://chat.ivaisoft.com" }
-            - { name: N8N_OUTBOUND_WEBHOOK_URL, value: "http://n8n.n8n.svc.cluster.local:5678/webhook/ivaisoft-chat-flow-outbound" }
-            - { name: N8N_SUMMARIZE_WEBHOOK_URL, value: "http://n8n.n8n.svc.cluster.local:5678/webhook/ivaisoft-chat-flow-summarize" }
+            - { name: N8N_OUTBOUND_WEBHOOK_URL, value: "http://n8n-backend.n8n.svc.cluster.local:5678/webhook/ivaisoft-chat-flow-outbound" }
+            - { name: N8N_SUMMARIZE_WEBHOOK_URL, value: "http://n8n-backend.n8n.svc.cluster.local:5678/webhook/ivaisoft-chat-flow-summarize" }
             - { name: MEDIA_SIGNED_URL_TTL_SECONDS, value: "300" }
           envFrom:
             - secretRef: { name: chat-flow-secrets }
+            - secretRef: { name: chat-flow-machine-secrets }
           readinessProbe:
             httpGet: { path: /health, port: 3001 }
           livenessProbe:
@@ -117,4 +118,4 @@ spec:
               env:
                 - name: API_MACHINE_SECRET
                   valueFrom:
-                    secretKeyRef: { name: chat-flow-secrets, key: API_MACHINE_SECRET }
+                    secretKeyRef: { name: chat-flow-machine-secrets, key: API_MACHINE_SECRET }

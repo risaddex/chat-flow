@@ -13,19 +13,23 @@ Prepared drafts:
   the existing `IvaiSoft WhatsApp API` and `OpenRouter account` credentials.
 - `DRB47tGV1HfNkOIA` remains the RAG implementation (OpenRouter + Milvus).
 
-## Credentials before smoke
+## Configured credentials
 
-Do not publish either draft until these credentials are created from BWS and
-explicitly attached:
+Both drafts have their dedicated credentials attached (2026-09-07):
 
-1. Both gateway Webhook nodes: HTTP Header Auth with header
-   `X-Machine-Secret` and the same value as API `N8N_MACHINE_SECRET`.
-   The draft is inactive and its webhook authentication is deliberately unset;
-   do not publish it before attaching this credential.
-2. Every HTTP request to Chat Flow API: templated custom auth that adds
-   `X-Machine-Secret` with the same value as API `API_MACHINE_SECRET`.
-3. Keep `IvaiSoft WhatsApp API` and `OpenRouter account`; do not create a new
-   WhatsApp Trigger, Pinecone, or Gemini credential.
+- `G6SS690xFzgckStV` — `IvaiSoft Chat Flow — n8n para API`: templated custom
+  auth adds `X-Machine-Secret` using BWS `API_MACHINE_SECRET`. Attached to
+  all four HTTP requests to the Chat Flow API.
+- `RZFuWd3ZZCZTPpBx` — `IvaiSoft Chat Flow — API para n8n`: HTTP Header Auth
+  using BWS `N8N_MACHINE_SECRET`. Both gateway webhooks require this header.
+
+Kubernetes synchronizes both values into `ivaisoft/chat-flow-machine-secrets`
+using `deploy/bitwarden-secrets.yaml`. n8n stores encrypted credential copies;
+when rotating BWS values, update the corresponding n8n credential too.
+No secret values belong in workflow parameters or Git.
+
+Keep `IvaiSoft WhatsApp API` and `OpenRouter account`. The drafts remain
+inactive pending application deployment, operator bootstrap and smoke.
 
 ## Cutover after smoke
 

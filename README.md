@@ -114,8 +114,14 @@ npm --prefix api run build
 
 `deploy/k8s.yaml` contains separate frontend and API workloads for
 `chat.ivaisoft.com`, plus the daily 30-day retention job. Replace image names
-and create the `chat-flow-secrets` Secret from BWS before applying it. Never put
-secret values in the manifest.
+and create `chat-flow-secrets` with `SUPABASE_SERVICE_ROLE_KEY` before applying
+it. Machine secrets are separate: `deploy/bitwarden-secrets.yaml` maps their
+BWS UUIDs to `chat-flow-machine-secrets`, automatically synchronized by the
+existing Bitwarden operator. The namespace must contain its `bw-auth-token`
+authentication Secret. Never put secret values in the manifest.
+
+The two machine secrets and their n8n credentials were configured on 2026-09-07.
+The application workloads and gateway drafts have not been activated.
 
 ## Scripts
 
