@@ -7,7 +7,8 @@ Prepared drafts:
 
 - `mfIFDkQs3GTAK2yL` — persists the existing generic inbound contract through
   `chat-flow-api.ivaisoft.svc.cluster.local`, stores inbound media privately,
-  and returns `ai_active` / `human_active` to the caller.
+  records `sent` / `delivered` / `read` / `failed` events, and returns
+  `ai_active` / `human_active` to the caller for message events.
 - `p4jYR70qX9hI9c1a` — protected operator outbound and handoff summary. It uses
   the existing `IvaiSoft WhatsApp API` and `OpenRouter account` credentials.
 - `DRB47tGV1HfNkOIA` remains the RAG implementation (OpenRouter + Milvus).
@@ -30,12 +31,15 @@ explicitly attached:
 
 1. Deploy API and UI, apply migrations, bootstrap the business and agent.
 2. Test both gateway webhooks using their test URLs and the machine header.
-3. In `yNHoIWuYbywConGI`, add one Execute Sub-workflow after
-   `Montar contrato genérico`, calling `mfIFDkQs3GTAK2yL` with `input=$json`.
-4. Route the bridge response: `ai_active=true` continues through the current
+3. In `yNHoIWuYbywConGI`, route raw `statuses[]` events from `Webhook do Worker`
+   to `mfIFDkQs3GTAK2yL` with `input=$json`; message events keep going to
+   `Normalizar canal WhatsApp`.
+4. Add another Execute Sub-workflow after `Montar contrato genérico`, calling
+   the same bridge with `input=$json`.
+5. Route the message response: `ai_active=true` continues through the current
    contacts/identity/utility/RAG path; `ai_active=false` stops AI output after
    persistence. Printing and other utilities remain in the current path.
-5. Publish `p4jYR70qX9hI9c1a`, update the API webhook URLs if needed, then
+6. Publish `p4jYR70qX9hI9c1a`, update the API webhook URLs if needed, then
    publish the single reviewed change to `yNHoIWuYbywConGI`.
-6. Send one real inbound message, take it over, send one operator reply, resolve
+7. Send one real inbound message, take it over, send one operator reply, resolve
    it, and confirm AI resumes on the next inbound message.
