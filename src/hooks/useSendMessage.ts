@@ -4,18 +4,18 @@ import { sendOutbound } from '../lib/api';
 interface SendParams {
   content: string;
   message_type?: string;
-  media_url?: string;
+  media_path?: string;
   mime_type?: string;
   filename?: string;
 }
 
-export function useSendMessage(phone: string) {
+export function useSendMessage(conversationId: string) {
   const [sending, setSending] = useState(false);
 
   const send = async (params: SendParams) => {
     setSending(true);
     try {
-      await sendOutbound({ phone, ...params });
+      await sendOutbound({ conversation_id: conversationId, ...params });
     } finally {
       setSending(false);
     }

@@ -3,10 +3,11 @@ import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import { getSupabase } from '../lib/supabase.js';
 const supabase = getSupabase();
-import { apiAuth } from '../middleware/api-auth.js';
-import { getOrCreateBusiness } from '../lib/business.js';
+import { machineAuth, operatorAuth } from '../middleware/api-auth.js';
+import { getBusinessByPhoneNumberId } from '../lib/business.js';
+import type { AppVariables } from '../types.js';
 
-const app = new Hono();
+const app = new Hono<{ Variables: AppVariables }>();
 
 const createContactSchema = z.object({
   wa_id: z.string().min(1),
@@ -14,10 +15,11 @@ const createContactSchema = z.object({
   title: z.string().default(''),
 });
 
-app.post('/create', apiAuth, zValidator('json', createContactSchema), async (c) => {
+app.post('/create', operatorAuth, zValidator('json', createContactSchema), async (c) => {
   const body = c.req.valid('json');
-  const businessId = await getOrCreateBusiness();
-  if (!businessId) return c.json({ error: 'No business configured' }, 500);
+  const agent = c.get('agent');
+  if (agent.role === 'viewer') return c.json({ error: 'Viewer cannot create contacts' }, 403);
+  const businessId = agent.business_id;
 
   const { data: existing } = await supabase
     .from('contacts')
@@ -48,12 +50,15 @@ const updateContactSchema = z.object({
   title: z.string().default(''),
 });
 
-app.post('/update', apiAuth, zValidator('json', updateContactSchema), async (c) => {
+app.post('/update', operatorAuth, zValidator('json', updateContactSchema), async (c) => {
   const body = c.req.valid('json');
+  const agent = c.get('agent');
+  if (agent.role === 'viewer') return c.json({ error: 'Viewer cannot update contacts' }, 403);
   const { data: contact, error } = await supabase
     .from('contacts')
     .update({ name: body.name || null, title: body.title || null })
     .eq('id', body.id)
+    .eq('business_id', agent.business_id)
     .select('*')
     .maybeSingle();
 
@@ -62,12 +67,13 @@ app.post('/update', apiAuth, zValidator('json', updateContactSchema), async (c) 
   return c.json({ contact });
 });
 
-app.get('/lookup', apiAuth, async (c) => {
+app.get('/lookup', machineAuth, async (c) => {
   const phone = c.req.query('phone');
-  if (!phone) return c.json({ error: 'phone query param required' }, 400);
+  const phoneNumberId = c.req.query('phone_number_id');
+  if (!phone || !phoneNumberId) return c.json({ error: 'phone and phone_number_id are required' }, 400);
 
-  const businessId = await getOrCreateBusiness();
-  if (!businessId) return c.json({ error: 'No business configured' }, 500);
+  const businessId = await getBusinessByPhoneNumberId(phoneNumberId);
+  if (!businessId) return c.json({ error: 'Unknown phone_number_id' }, 404);
 
   const { data: contact } = await supabase
     .from('contacts')

@@ -196,7 +196,7 @@ export default function ConversationThread({ conversation, onUpdate }: Props) {
         </div>
       )}
 
-      <ReplyBar phone={conversation.wa_id} canReply={humanHandling} onTakeOver={handleTakeOver} takingOver={takingOver} customerName={displayName} />
+      <ReplyBar conversationId={conversation.id} canReply={humanHandling} onTakeOver={handleTakeOver} takingOver={takingOver} customerName={displayName} />
     </section>
   );
 }

@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import type { Message } from '../types';
+import { getMediaUrl } from '../lib/api';
 
 interface Props {
   message: Message;
@@ -9,7 +11,13 @@ interface Props {
 // n8n pipeline stores a "[<type> message]" placeholder as content when a
 // media message has no caption — suppress that so we don't show it under media.
 function MessageBody({ message }: { message: Message }) {
-  const url = message.media_url;
+  const [url, setUrl] = useState('');
+  useEffect(() => {
+    if (!message.media_path) { setUrl(''); return; }
+    let current = true;
+    getMediaUrl(message.id).then((value) => { if (current) setUrl(value); }).catch(() => { if (current) setUrl(''); });
+    return () => { current = false; };
+  }, [message.id, message.media_path]);
   const type = message.type;
   const isPlaceholder = /^\[[a-z]+ message\]$/i.test((message.content || '').trim());
   const caption = isPlaceholder ? '' : (message.content || '');
