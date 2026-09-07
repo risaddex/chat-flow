@@ -113,15 +113,47 @@ npm --prefix api run build
 ## k3s
 
 `deploy/k8s.yaml` contains separate frontend and API workloads for
-`chat.ivaisoft.com`, plus the daily 30-day retention job. Replace image names
-and create `chat-flow-secrets` with `SUPABASE_SERVICE_ROLE_KEY` before applying
-it. Machine secrets are separate: `deploy/bitwarden-secrets.yaml` maps their
-BWS UUIDs to `chat-flow-machine-secrets`, automatically synchronized by the
-existing Bitwarden operator. The namespace must contain its `bw-auth-token`
+`chat.ivaisoft.com`, plus the daily 30-day retention job. Images are pinned by
+digest in the existing LAN registry. `deploy/bitwarden-secrets.yaml` maps the
+Supabase server key to `chat-flow-secrets` and the machine keys to
+`chat-flow-machine-secrets`, automatically synchronized by the existing
+Bitwarden operator. The namespace must contain its `bw-auth-token`
 authentication Secret. Never put secret values in the manifest.
 
-The two machine secrets and their n8n credentials were configured on 2026-09-07.
-The application workloads and gateway drafts have not been activated.
+```bash
+kubectl --context default apply -f deploy/bitwarden-secrets.yaml
+kubectl --context default -n ivaisoft wait --for=condition=SuccessfulSync bitwardensecret/chat-flow-secrets --timeout=60s
+kubectl --context default apply --dry-run=server -f deploy/k8s.yaml
+kubectl --context default apply -f deploy/k8s.yaml
+```
+
+### Deployment evidence — 2026-09-07
+
+API and frontend are deployed at <https://chat.ivaisoft.com>, with both pods
+ready and BWS synchronization successful. The public live smoke passed:
+password login, tenant RLS, API tenant/viewer guards, duplicate ingestion
+(one message and one unread increment), takeover/resolve, status deduplication,
+2 MiB upload, private signed media (300-second TTL), and 30-day retention
+removing the expired message/media while preserving recent content.
+The deletion check allows up to 65 seconds for
+[Supabase CDN invalidation](https://supabase.com/docs/guides/storage/cdn/smart-cdn);
+the configured signed-token TTL is not a guarantee of immediate cache revocation.
+
+```bash
+SMOKE_API_URL=https://chat.ivaisoft.com node api/smoke.mjs
+```
+
+The script reads the deployed secrets in memory, creates temporary tenants
+and Auth users, then signs out and deletes only its fixtures. It never sends
+WhatsApp messages. It refuses the retention check if unrelated expired messages,
+notes, cases or conversation previews exist. Because the retention endpoint is
+global, run this smoke only before cutover, without concurrent traffic, against
+this authorized project with `kubectl` access.
+
+Production business/operator bootstrap and WhatsApp cutover are still pending.
+n8n bridge persistence passed; the summary smoke failed because the existing
+OpenRouter API key expired. Both n8n drafts remain unpublished and the active
+inbound flow is unchanged. See `n8n/README.md` before activating messaging.
 
 ## Scripts
 
