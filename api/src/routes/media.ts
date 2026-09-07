@@ -38,7 +38,7 @@ async function upload(c: Context<{ Variables: AppVariables }>, businessId: strin
   if (!(file instanceof File)) return c.json({ error: 'Missing file field' }, 400);
   if (!messageId) return c.json({ error: 'Invalid wa_message_id' }, 400);
 
-  const mime = String(form.mime_type || file.type || 'application/octet-stream').toLowerCase();
+  const mime = String(form.mime_type || file.type || 'application/octet-stream').split(';')[0].trim().toLowerCase();
   if (!ALLOWED_MIME.test(mime)) return c.json({ error: 'Unsupported media type' }, 415);
   if (file.size < 1 || file.size > MAX_BYTES) return c.json({ error: 'File must be between 1 byte and 20 MB' }, 413);
 

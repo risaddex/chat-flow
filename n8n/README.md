@@ -6,8 +6,8 @@ version `3e47869b-f71d-4a68-8448-51b51d6bafde`.
 Prepared drafts:
 
 - `mfIFDkQs3GTAK2yL` — persists the existing generic inbound contract through
-  `chat-flow-api.ivaisoft.svc.cluster.local` and returns `ai_active` /
-  `human_active` to the caller.
+  `chat-flow-api.ivaisoft.svc.cluster.local`, stores inbound media privately,
+  and returns `ai_active` / `human_active` to the caller.
 - `p4jYR70qX9hI9c1a` — protected operator outbound and handoff summary. It uses
   the existing `IvaiSoft WhatsApp API` and `OpenRouter account` credentials.
 - `DRB47tGV1HfNkOIA` remains the RAG implementation (OpenRouter + Milvus).
