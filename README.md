@@ -28,7 +28,9 @@ AI-assisted replies, and analytics — backed by Supabase.
 .
 ├── src/            # React front end (pages, components, hooks, context)
 ├── api/            # Hono API server (routes, middleware, lib)
-├── SUPABASE_SCHEMA.md  # Full database schema (all CREATE TABLE queries)
+├── supabase/       # Versioned database migrations
+├── n8n/            # Draft workflow ids and cutover runbook
+├── deploy/         # Container and k3s configuration
 └── index.html
 ```
 
@@ -36,7 +38,7 @@ AI-assisted replies, and analytics — backed by Supabase.
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 22+
 - A [Supabase](https://supabase.com) project
 - WhatsApp Cloud API credentials (for live messaging)
 
@@ -49,9 +51,17 @@ npm --prefix api install
 
 ### 2. Set up the database
 
-Open the Supabase **SQL Editor** and run the queries in
-[`SUPABASE_SCHEMA.md`](SUPABASE_SCHEMA.md) in order. This creates all tables,
-constraints, indexes, and enables Row Level Security.
+Apply the versioned files in `supabase/migrations/`. They create tenant-scoped
+RLS policies and the private `whatsapp-media` bucket. Bootstrap the first
+business and agent only after creating the agent with Supabase Auth:
+
+```sql
+insert into public.businesses (name, whatsapp_phone_number_id)
+values ('IvaiSoft', '<META_PHONE_NUMBER_ID>') returning id;
+
+insert into public.agents (id, business_id, name, email, role)
+values ('<AUTH_USER_UUID>', '<BUSINESS_UUID>', 'Operator', '<EMAIL>', 'admin');
+```
 
 ### 3. Configure environment variables
 
@@ -64,16 +74,23 @@ cp .env.example .env
 | Variable | Description |
 | --- | --- |
 | `VITE_SUPABASE_URL` | Supabase project URL |
-| `VITE_SUPABASE_ANON_KEY` | Supabase anon/public key |
-| `VITE_API_URL` | URL of the API server (e.g. `http://localhost:3001`) |
-| `VITE_API_TOKEN` | Bearer token the front end sends to the API |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable key |
+| `VITE_API_URL` | API URL; blank uses the current origin |
 | `SUPABASE_URL` | Supabase project URL (API side) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service-role key (**server only**) |
-| `API_BEARER_TOKEN` | Token the API requires on incoming requests |
+| `API_MACHINE_SECRET` | Secret accepted only by n8n-to-API endpoints |
+| `N8N_MACHINE_SECRET` | Secret sent only by the API to protected n8n webhooks |
+| `N8N_OUTBOUND_WEBHOOK_URL` | Internal `.svc` URL for operator sends |
+| `N8N_SUMMARIZE_WEBHOOK_URL` | Internal `.svc` URL for handoff summaries |
+| `CORS_ORIGIN` | Exact dashboard origin |
 | `PORT` | API server port (default `3001`) |
 
 > ⚠️ **Never commit your `.env`.** It contains secrets and is gitignored.
 > The service-role key must stay on the server only.
+
+The dashboard authenticates with Supabase Auth and sends that JWT to the API.
+It never calls n8n directly. n8n machine endpoints use separate secrets, and
+WhatsApp media is read through short-lived signed URLs.
 
 ### 4. Run in development
 
@@ -92,6 +109,19 @@ This starts both the Vite front end and the API server concurrently.
 npm run build          # builds the front end
 npm --prefix api run build
 ```
+
+## k3s
+
+`deploy/k8s.yaml` contains separate frontend and API workloads for
+`chat.ivaisoft.com`, plus the daily 30-day retention job. Replace image names
+and create `chat-flow-secrets` with `SUPABASE_SERVICE_ROLE_KEY` before applying
+it. Machine secrets are separate: `deploy/bitwarden-secrets.yaml` maps their
+BWS UUIDs to `chat-flow-machine-secrets`, automatically synchronized by the
+existing Bitwarden operator. The namespace must contain its `bw-auth-token`
+authentication Secret. Never put secret values in the manifest.
+
+The two machine secrets and their n8n credentials were configured on 2026-09-07.
+The application workloads and gateway drafts have not been activated.
 
 ## Scripts
 

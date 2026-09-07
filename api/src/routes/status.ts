@@ -3,20 +3,21 @@ import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import { getSupabase } from '../lib/supabase.js';
 const supabase = getSupabase();
-import { apiAuth } from '../middleware/api-auth.js';
+import { machineAuth } from '../middleware/api-auth.js';
 
 const app = new Hono();
 
 const storeStatusSchema = z.object({
   wa_message_id: z.string(),
   status: z.enum(['sent', 'delivered', 'read', 'failed', 'reaction']),
-  timestamp: z.string(),
+  timestamp: z.string().regex(/^\d{10}$/, 'timestamp must be Unix seconds'),
   recipient_phone: z.string().default(''),
   reaction_emoji: z.string().default(''),
 });
 
-app.post('/store', apiAuth, zValidator('json', storeStatusSchema), async (c) => {
+app.post('/store', machineAuth, zValidator('json', storeStatusSchema), async (c) => {
   const body = c.req.valid('json');
+  const eventKey = `${body.wa_message_id}:${body.status}:${body.timestamp}:${body.reaction_emoji}`;
 
   if (body.status === 'reaction') {
     const { data: msg } = await supabase
@@ -38,13 +39,14 @@ app.post('/store', apiAuth, zValidator('json', storeStatusSchema), async (c) => 
 
     const { error: eventError } = await supabase
       .from('message_status_events')
-      .insert({
+      .upsert({
+        event_key: eventKey,
         message_id: msg.id,
         event_type: 'reaction',
         reaction_emoji: body.reaction_emoji,
         occurred_at: new Date(parseInt(body.timestamp) * 1000).toISOString(),
         raw_payload: { emoji: body.reaction_emoji, phone: body.recipient_phone },
-      });
+      }, { onConflict: 'event_key', ignoreDuplicates: true });
 
     if (msgError || eventError) return c.json({ error: (msgError || eventError)!.message }, 500);
     return c.json({ status: 'ok' }, 200);
@@ -61,12 +63,13 @@ app.post('/store', apiAuth, zValidator('json', storeStatusSchema), async (c) => 
 
   const { error } = await supabase
     .from('message_status_events')
-    .insert({
+    .upsert({
+      event_key: eventKey,
       message_id: msg.id,
       event_type: body.status,
       occurred_at: new Date(parseInt(body.timestamp) * 1000).toISOString(),
       raw_payload: { recipient_phone: body.recipient_phone },
-    });
+    }, { onConflict: 'event_key', ignoreDuplicates: true });
 
   if (error) return c.json({ error: error.message }, 500);
   return c.json({ status: 'ok' }, 200);

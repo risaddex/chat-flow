@@ -3,26 +3,27 @@ import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import { getSupabase } from '../lib/supabase.js';
 const supabase = getSupabase();
-import { apiAuth } from '../middleware/api-auth.js';
-import { getOrCreateBusiness } from '../lib/business.js';
+import { operatorAuth } from '../middleware/api-auth.js';
+import type { AppVariables } from '../types.js';
+import { resolveState, takeoverState } from '../lib/domain.js';
 
-const app = new Hono();
+const app = new Hono<{ Variables: AppVariables }>();
 
 const takeoverSchema = z.object({
   conversation_id: z.string(),
 });
 
-app.post('/takeover', apiAuth, zValidator('json', takeoverSchema), async (c) => {
+app.post('/takeover', operatorAuth, zValidator('json', takeoverSchema), async (c) => {
   const { conversation_id } = c.req.valid('json');
-  const businessId = await getOrCreateBusiness();
-  if (!businessId) return c.json({ error: 'No business configured' }, 500);
+  const agent = c.get('agent');
+  if (agent.role === 'viewer') return c.json({ error: 'Viewer cannot take over conversations' }, 403);
 
   const { data: conv } = await supabase
     .from('conversations')
     .select('id, wa_id, customer_name')
     .eq('id', conversation_id)
-    .eq('business_id', businessId)
-    .single();
+    .eq('business_id', agent.business_id)
+    .maybeSingle();
 
   if (!conv) return c.json({ error: 'Conversation not found' }, 404);
 
@@ -41,7 +42,8 @@ app.post('/takeover', apiAuth, zValidator('json', takeoverSchema), async (c) => 
       .from('cases')
       .insert({
         conversation_id,
-        business_id: businessId,
+        business_id: agent.business_id,
+        assigned_agent_id: agent.id,
         subject: `Support for ${customerName}`,
         description: `Manual takeover - conversation with ${customerName}`,
         source: 'manual',
@@ -56,8 +58,9 @@ app.post('/takeover', apiAuth, zValidator('json', takeoverSchema), async (c) => 
 
   const { error } = await supabase
     .from('conversations')
-    .update({ ai_active: false, human_active: true, unread_count: 0 })
-    .eq('id', conversation_id);
+    .update(takeoverState(agent.id))
+    .eq('id', conversation_id)
+    .eq('business_id', agent.business_id);
 
   if (error) return c.json({ error: error.message }, 500);
 
@@ -68,21 +71,25 @@ app.post('/takeover', apiAuth, zValidator('json', takeoverSchema), async (c) => 
   });
 });
 
-app.post('/resolve', apiAuth, zValidator('json', takeoverSchema), async (c) => {
+app.post('/resolve', operatorAuth, zValidator('json', takeoverSchema), async (c) => {
   const { conversation_id } = c.req.valid('json');
-  const businessId = await getOrCreateBusiness();
-  if (!businessId) return c.json({ error: 'No business configured' }, 500);
+  const agent = c.get('agent');
+  if (agent.role === 'viewer') return c.json({ error: 'Viewer cannot resolve conversations' }, 403);
 
-  await supabase
+  const { data: conversation } = await supabase
     .from('conversations')
-    .update({ ai_active: true, human_active: false })
+    .update(resolveState())
     .eq('id', conversation_id)
-    .eq('business_id', businessId);
+    .eq('business_id', agent.business_id)
+    .select('id')
+    .maybeSingle();
+  if (!conversation) return c.json({ error: 'Conversation not found' }, 404);
 
   await supabase
     .from('cases')
     .update({ status: 'resolved', resolved_at: new Date().toISOString() })
     .eq('conversation_id', conversation_id)
+    .eq('business_id', agent.business_id)
     .eq('status', 'open');
 
   return c.json({ status: 'resolved' });

@@ -1,0 +1,121 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ivaisoft
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-flow-api
+  namespace: ivaisoft
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: chat-flow-api }
+  template:
+    metadata:
+      labels: { app: chat-flow-api }
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/risaddex/chat-flow-api:latest
+          ports:
+            - containerPort: 3001
+          env:
+            - { name: SUPABASE_URL, value: "https://lorwmxxrxodonkxgmvzm.supabase.co" }
+            - { name: CORS_ORIGIN, value: "https://chat.ivaisoft.com" }
+            - { name: N8N_OUTBOUND_WEBHOOK_URL, value: "http://n8n-backend.n8n.svc.cluster.local:5678/webhook/ivaisoft-chat-flow-outbound" }
+            - { name: N8N_SUMMARIZE_WEBHOOK_URL, value: "http://n8n-backend.n8n.svc.cluster.local:5678/webhook/ivaisoft-chat-flow-summarize" }
+            - { name: MEDIA_SIGNED_URL_TTL_SECONDS, value: "300" }
+          envFrom:
+            - secretRef: { name: chat-flow-secrets }
+            - secretRef: { name: chat-flow-machine-secrets }
+          readinessProbe:
+            httpGet: { path: /health, port: 3001 }
+          livenessProbe:
+            httpGet: { path: /health, port: 3001 }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chat-flow-api
+  namespace: ivaisoft
+spec:
+  selector: { app: chat-flow-api }
+  ports:
+    - { port: 3001, targetPort: 3001 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-flow-web
+  namespace: ivaisoft
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: chat-flow-web }
+  template:
+    metadata:
+      labels: { app: chat-flow-web }
+    spec:
+      containers:
+        - name: web
+          image: ghcr.io/risaddex/chat-flow:latest
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet: { path: /health, port: 8080 }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chat-flow-web
+  namespace: ivaisoft
+spec:
+  selector: { app: chat-flow-web }
+  ports:
+    - { port: 80, targetPort: 8080 }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: chat-flow
+  namespace: ivaisoft
+spec:
+  rules:
+    - host: chat.ivaisoft.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: chat-flow-web
+                port: { number: 80 }
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: chat-flow-retention
+  namespace: ivaisoft
+spec:
+  schedule: "17 3 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: purge
+              image: curlimages/curl:8.15.0
+              args:
+                - -fsS
+                - -X
+                - POST
+                - -H
+                - X-Machine-Secret: $(API_MACHINE_SECRET)
+                - http://chat-flow-api.ivaisoft.svc.cluster.local:3001/api/retention/purge
+              env:
+                - name: API_MACHINE_SECRET
+                  valueFrom:
+                    secretKeyRef: { name: chat-flow-machine-secrets, key: API_MACHINE_SECRET }

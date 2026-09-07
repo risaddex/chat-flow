@@ -10,7 +10,7 @@ interface Props {
   onUpdate: () => void;
 }
 
-function SummarizeSection({ phone }: { phone: string }) {
+function SummarizeSection({ conversationId }: { conversationId: string }) {
   const { showToast } = useToast();
   const [count, setCount] = useState(20);
   const [summary, setSummary] = useState('');
@@ -20,7 +20,7 @@ function SummarizeSection({ phone }: { phone: string }) {
     setLoading(true);
     setSummary('');
     try {
-      const s = await summarizeChat(phone, count);
+      const s = await summarizeChat(conversationId, count);
       setSummary(s || 'No summary returned.');
     } catch (e) {
       showToast('Summarize failed: ' + ((e as Error).message || 'Unknown'));
@@ -81,7 +81,7 @@ export default function SidePanel({ conversation, onUpdate }: Props) {
 
   return (
     <aside className="hidden lg:flex w-[320px] min-w-[320px] max-w-[320px] border-l border-outline-variant bg-white flex-col h-full overflow-y-auto shrink-0">
-      <SummarizeSection phone={conversation.wa_id} />
+      <SummarizeSection conversationId={conversation.id} />
 
       {caseItem ? (
         <>

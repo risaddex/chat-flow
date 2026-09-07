@@ -5,7 +5,7 @@ import { useToast } from '../context/ToastContext';
 import Spinner from './Spinner';
 
 interface Props {
-  phone: string;
+  conversationId: string;
   /** True when a human has taken over (a case is open) and can send messages. */
   canReply: boolean;
   onTakeOver: () => void;
@@ -13,13 +13,13 @@ interface Props {
   customerName?: string;
 }
 
-export default function ReplyBar({ phone, canReply, onTakeOver, takingOver, customerName }: Props) {
+export default function ReplyBar({ conversationId, canReply, onTakeOver, takingOver, customerName }: Props) {
   const { showToast } = useToast();
   const [text, setText] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { send, sending } = useSendMessage(phone);
+  const { send, sending } = useSendMessage(conversationId);
 
   const busy = sending || uploading;
 
@@ -38,7 +38,7 @@ export default function ReplyBar({ phone, canReply, onTakeOver, takingOver, cust
         await send({
           content: caption,
           message_type: mediaTypeFromMime(attachment.type || ''),
-          media_url: media.media_url,
+          media_path: media.media_path,
           mime_type: media.mime_type,
           filename: attachment.name,
         });

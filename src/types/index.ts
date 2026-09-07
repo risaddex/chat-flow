@@ -47,8 +47,8 @@ export interface Message {
   direction: 'inbound' | 'outbound';
   type: string;
   content: string;
-  media_url: string | null;
-  mime_type: string | null;
+  media_path: string | null;
+  media_mime_type: string | null;
   status: 'processing' | 'sent' | 'delivered' | 'read' | 'failed';
   sent_by: 'ai' | 'human' | null;
   agent_id: string | null;

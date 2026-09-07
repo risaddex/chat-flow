@@ -3,17 +3,20 @@ import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import { getSupabase } from '../lib/supabase.js';
 const supabase = getSupabase();
-import { apiAuth } from '../middleware/api-auth.js';
-import { getOrCreateBusiness } from '../lib/business.js';
+import { machineAuth, operatorAuth } from '../middleware/api-auth.js';
+import { getBusinessByPhoneNumberId } from '../lib/business.js';
+import type { AppVariables } from '../types.js';
 
-const app = new Hono();
+const app = new Hono<{ Variables: AppVariables }>();
 
 const lookupSchema = z.object({
   phone: z.string(),
+  phone_number_id: z.string().min(1),
 });
 
 const createSchema = z.object({
   phone: z.string(),
+  phone_number_id: z.string().min(1),
   title: z.string().default(''),
   summary: z.string().default(''),
   urgency: z.enum(['low', 'medium', 'high']).default('medium'),
@@ -30,10 +33,11 @@ const createManualSchema = z.object({
   priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
 });
 
-app.post('/create-manual', apiAuth, zValidator('json', createManualSchema), async (c) => {
+app.post('/create-manual', operatorAuth, zValidator('json', createManualSchema), async (c) => {
   const body = c.req.valid('json');
-  const businessId = await getOrCreateBusiness();
-  if (!businessId) return c.json({ error: 'No business configured' }, 500);
+  const agent = c.get('agent');
+  if (agent.role === 'viewer') return c.json({ error: 'Viewer cannot create cases' }, 403);
+  const businessId = agent.business_id;
 
   const { data: conv } = await supabase
     .from('conversations')
@@ -46,7 +50,7 @@ app.post('/create-manual', apiAuth, zValidator('json', createManualSchema), asyn
 
   if (conv) {
     conversationId = conv.id;
-    await supabase.from('conversations').update({ ai_active: false, human_active: true }).eq('id', conversationId);
+    await supabase.from('conversations').update({ ai_active: false, human_active: true, assigned_agent_id: agent.id }).eq('id', conversationId);
   } else {
     const { data: newConv, error: convErr } = await supabase
       .from('conversations')
@@ -57,6 +61,7 @@ app.post('/create-manual', apiAuth, zValidator('json', createManualSchema), asyn
         status: 'open',
         ai_active: false,
         human_active: true,
+        assigned_agent_id: agent.id,
       })
       .select('id')
       .single();
@@ -84,6 +89,7 @@ app.post('/create-manual', apiAuth, zValidator('json', createManualSchema), asyn
       subject: body.subject,
       description: body.description || null,
       priority: body.priority,
+      assigned_agent_id: agent.id,
       source: 'manual',
       status: 'open',
     })
@@ -94,10 +100,10 @@ app.post('/create-manual', apiAuth, zValidator('json', createManualSchema), asyn
   return c.json({ case: newCase }, 201);
 });
 
-app.post('/lookup', apiAuth, zValidator('json', lookupSchema), async (c) => {
-  const { phone } = c.req.valid('json');
-  const businessId = await getOrCreateBusiness();
-  if (!businessId) return c.json({ error: 'No business configured' }, 500);
+app.post('/lookup', machineAuth, zValidator('json', lookupSchema), async (c) => {
+  const { phone, phone_number_id } = c.req.valid('json');
+  const businessId = await getBusinessByPhoneNumberId(phone_number_id);
+  if (!businessId) return c.json({ error: 'Unknown phone_number_id' }, 404);
 
   const { data: conv } = await supabase
     .from('conversations')
@@ -118,10 +124,10 @@ app.post('/lookup', apiAuth, zValidator('json', lookupSchema), async (c) => {
   return c.json({ case: caseItem || null });
 });
 
-app.post('/create', apiAuth, zValidator('json', createSchema), async (c) => {
+app.post('/create', machineAuth, zValidator('json', createSchema), async (c) => {
   const body = c.req.valid('json');
-  const businessId = await getOrCreateBusiness();
-  if (!businessId) return c.json({ error: 'No business configured' }, 500);
+  const businessId = await getBusinessByPhoneNumberId(body.phone_number_id);
+  if (!businessId) return c.json({ error: 'Unknown phone_number_id' }, 404);
 
   const { data: conv } = await supabase
     .from('conversations')
